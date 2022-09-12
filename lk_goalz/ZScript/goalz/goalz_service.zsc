@@ -1,0 +1,27 @@
+
+// Triggers goal when 1 monster has been killed.
+class GoalServiceExample : Service
+{
+	override int GetInt(String req, String goalType, int curState, double curPerc, Object plrObj)
+	{
+		// Only process if neutral.
+		if(curState == 0) 
+		{
+			return level.killed_monsters > 0;
+		}
+		
+		return curState; // Neutral state
+	}
+	
+	override double GetDouble(String req, String goalType, int curState, double curPerc, Object plrObj)
+	{		
+		// Used for multi-level goals.
+		return curPerc;
+	}
+	
+	// Update goal description
+	override string GetString(String curDesc, String goalType, int curState, double curPerc, Object plrObj)
+	{
+		return curDesc;
+	}
+}

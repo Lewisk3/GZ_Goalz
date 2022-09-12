@@ -1,0 +1,9 @@
+Goal FirstBlood 
+{
+	Name "First Blood";
+	Description "Kill your first Enemy.";
+	Service "GoalServiceExample";
+	CompleteSound "weapons/rocklx";
+	FailSound "sndhere";
+	PartialCompleteSound "sndhere";
+}

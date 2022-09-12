@@ -1,0 +1,17 @@
+Goal FirstBlood 
+{
+	Name "First Blood";
+	Icon "TITLEPIC"
+	Description "Kill your first Enemy.";
+	Service "GoalService_FirstBlood";
+	CompleteSound "weapons/rocklx";
+}
+
+Goal ViewBestTexture 
+{
+	Name "Water In The Fire";
+	Icon "FIREBLU2"
+	Description "You've just seen the best texture ever devised by mankind. Be in awe at its glory.";
+	Service "GoalService_Fireblu";
+	CompleteSound "weapons/rocklx";
+}

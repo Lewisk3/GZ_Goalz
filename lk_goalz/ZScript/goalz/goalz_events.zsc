@@ -1,0 +1,30 @@
+class GoalzEvents : EventHandler
+{
+	override void WorldTick()
+	{
+		for(int i = 0; i < MAXPLAYERS; i++)
+		{
+			PlayerInfo plrInfo = players[i];
+			if(!plrInfo || !playerInGame[i]) continue;
+			if(!plrInfo.mo.FindInventory("I_GoalzData"))
+				plrInfo.mo.GiveInventory("I_GoalzData", 1);
+		}
+	}
+	
+	/* 
+	// Example: How to handle goal updates.
+	override void NetworkProcess(ConsoleEvent e)
+	{
+		PlayerInfo plr = players[e.Player];
+		if(!plr) return;
+		
+		if(Goalz_StringHelper.checkGoalUpdate(e, "state"))
+		{
+			console.printf("Objective Completed: %s", Goalz_StringHelper.getGoalElementStr(e.Name, "Description"));
+			string snd = Goalz_StringHelper.getGoalElementStr(e.Name, "CompleteSound");
+			
+			if(snd) plr.mo.A_StartSound(snd, CHAN_AUTO);
+		}
+	}
+	*/
+}

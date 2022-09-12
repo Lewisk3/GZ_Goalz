@@ -1,0 +1,6 @@
+version "4.5"
+
+#include "ZScript/goalz/goalz_base.zsc"
+#include "ZScript/goalz/goalz_events.zsc"
+#include "ZScript/goalz/goalz_service.zsc"
+#include "ZScript/StringHelper.zsc"

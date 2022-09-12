@@ -1,0 +1,166 @@
+class GoalInfo : Object
+{
+	enum GOALSTATES
+	{
+		Failed = -1,
+		Neutral = 0,
+		Achieved = 1
+	}
+	
+	// Called by goal thinker to update goalState
+	String goalServiceType; 
+	
+	name type;
+	string Icon;
+	string displayName;
+	string description;
+	
+	Sound snd_complete;
+	Sound snd_partialcomplete;
+	Sound snd_fail;
+	
+	// State of completion.
+	// Goals will send Network events when their status has changed.
+	int goalState;
+	
+	// Used for multi-level goals
+	double completionPercent;
+}
+
+class I_GoalzData : Inventory
+{
+	Array<GoalInfo> goals;
+
+	Default
+	{
+		Inventory.MaxAmount 1;
+		+Inventory.UNDROPPABLE;
+        +Inventory.UNTOSSABLE;
+        +Inventory.PERSISTENTPOWER;
+	}
+	
+	void populateGoalz()
+	{
+		string defineKeyword = "goal";
+		
+		for(int lump = -1; (lump = Wads.FindLump("GOALZ", lump+1)) != -1;)
+		{
+			string data = Wads.ReadLump(lump);
+			string dataLower = data.MakeLower();
+	
+			// Look for `GameType` keyword(s).
+			int gIndex = 0;
+			int gOffset = 0;
+			int loopCheck = 0;
+			while(gIndex >= 0)
+			{
+				loopCheck++;
+				if(loopCheck > 100) 
+				{
+					console.printf("Error reading GOALZ. (Maximum recursion limit reached)");
+					break;
+				}
+				
+				gIndex = dataLower.IndexOf(defineKeyword, gOffset);
+				if(gIndex < 0) break;
+						
+				// Grab gametype block.
+				int blockStart = dataLower.IndexOf("{", gIndex);
+				int blockEnd = dataLower.IndexOf("}", gIndex);
+				if(blockStart < 0 || blockEnd < 0) break;
+				
+				// Get defined name.
+				int nameStart = dataLower.IndexOf(" ", gIndex)+1;
+				int nameEnd = blockStart-1;
+				int nameLen = nameEnd - nameStart;
+				
+				int blockLen = blockEnd - blockStart;
+				gOffset = blockEnd+1; // Advance read "head".
+				
+				string gData = data.Mid(blockStart, blockLen);
+				string gDataLower = gData.MakeLower();
+			
+				// Field to read from.
+				string gTypeName = data.Mid(nameStart, nameLen); 
+				gTypeName.Replace(String.Format("%c", 13), "");
+				
+				// Field(s)
+				string gName;
+				string gDesc;
+				string gIcon;
+				string gService;
+				string sndComplete;
+				string sndFail;
+				string sndPartialComplete;
+
+				bool exists;
+				string result;
+				[exists, gName] = Goalz_StringHelper.parseStrElement("name", gData);
+				[exists, gDesc] = Goalz_StringHelper.parseStrElement("description", gData);
+				[exists, gIcon] = Goalz_StringHelper.parseStrElement("icon", gData);
+				[exists, gService] = Goalz_StringHelper.parseStrElement("service", gData);
+				[exists, sndComplete] = Goalz_StringHelper.parseStrElement("completesound", gData);
+				[exists, sndFail] = Goalz_StringHelper.parseStrElement("failsound", gData);
+				[exists, sndPartialComplete] = Goalz_StringHelper.parseStrElement("partialcompletesound", gData);
+				
+				// Export data.
+				let curGoalInfo = new("GoalInfo");
+				
+				curGoalInfo.displayName = gName;
+				curGoalInfo.description = gDesc;
+				curGoalInfo.icon = gIcon;
+				curGoalInfo.type = gTypeName;
+				curGoalInfo.goalServiceType = gService;
+				curGoalInfo.snd_complete = sndComplete;
+				curGoalInfo.snd_fail = sndFail;
+				curGoalInfo.snd_partialcomplete = sndPartialComplete;
+						
+				goals.push(curGoalInfo);
+			}			
+		}
+	}
+		
+	override void DoEffect()
+	{
+		super.DoEffect();
+		
+		if(goals.Size() <= 0)
+			populateGoalz();
+		
+		for(int i = 0; i < goals.Size(); i++)
+		{
+			let goal = goals[i];
+			if(!goal) continue;
+			
+			if(!goal.goalServiceType || goal.goalServiceType == "service") continue;
+			
+			let svi = ServiceIterator.Find(goal.goalServiceType);
+			Service serv;
+			while(serv = svi.Next())
+			{
+				int oldState = goal.goalState;
+				double oldPerc = goal.completionPercent;
+				
+				goal.completionPercent = serv.GetDouble("getGoalCompletion", goal.type, goal.goalState, goal.completionPercent, Owner);
+				goal.goalState = serv.GetInt("getGoalState", goal.type, goal.goalState, goal.completionPercent, Owner);
+				
+				string newDesc = serv.GetString(goal.description, goal.type, goal.goalState, goal.completionPercent, Owner);
+				if(newDesc != "") goal.description = newDesc;
+				
+				// A very specific token is used here so that Description strings do not conflict with data.
+				string goalData = "[Name:%s~$~Description:%s~$~Icon:%s~$~CompletionPercent:%d~$~CompleteSound:%s~$~FailSound:%s~$~PartialCompleteSound:%s]"; 
+				goalData = String.Format(
+					goalData, 
+					goal.displayName, goal.description, goal.icon, int(goal.completionPercent*100.), 
+					goal.snd_complete, goal.snd_fail, goal.snd_partialcomplete
+				);
+				
+				if(goal.goalState != oldState) 
+					EventHandler.SendNetworkEvent(String.Format("goal.state.updated.%s",goalData), goal.goalState, oldState);
+					
+				if(goal.completionPercent != oldPerc) 
+					EventHandler.SendNetworkEvent(String.Format("goal.percent.updated.%s",goalData), goal.completionPercent*100, oldPerc*100);
+			}
+		}
+	}
+}

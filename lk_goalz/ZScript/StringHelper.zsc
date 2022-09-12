@@ -1,0 +1,80 @@
+class Goalz_StringHelper abstract
+{
+	// Attempt to automatically insert linebreaks in string.
+	static string formatLnBreaks(String str, int lineLen)
+	{
+		// Split string into words.
+		Array<string> words;
+		string newline = "\n";
+		str.Split(words, " ");
+		
+		string outStr;
+		int carriage = 0;
+		for(int i = 0; i < words.Size(); i++)
+		{
+			string word = words[i];
+			bool manualNewLine = word.IndexOf(newline, 0) != -1;
+			
+			int len = word.Length() + 1; // Add " " space at start of new word.
+			carriage += len;
+			
+			if(manualNewLine) carriage = len-1;
+			if(carriage > lineLen) 
+			{
+				outStr = outStr .. "\n";
+				carriage = len-1;
+			}
+
+			outStr = String.Format("%s %s", outStr, word);
+		}
+		
+		return outStr;
+	}
+	
+	static bool checkGoalUpdate(ConsoleEvent e, string updateType)
+	{	
+		string updateStr = e.Name;
+		Array<String> msg;
+		
+		updateStr.Split(msg, ".");
+		if(msg.Size() >= 3 && msg[0] == "goal" && msg[2] == "updated" && msg[1] == updateType.MakeLower())
+			return true;
+		
+		return false;
+	}
+	
+	static string getGoalElementStr(string goalStr, string element)
+	{
+		string elementStr = goalStr.Mid(goalStr.IndexOf("[")+1, goalStr.IndexOf("]")-1);
+		Array<String> elements;
+		elementStr.Split(elements, "~$~");
+		
+		for(int i = 0; i < elements.Size(); i++)
+		{
+			string el = elements[i].MakeLower();
+			if(el.IndexOf(element.MakeLower()) != -1)
+			{
+				int lim = el.IndexOf(":");
+				return elements[i].Mid(lim+1, el.Length()-lim);
+			}
+		}	
+		
+		return "";
+	}
+	 
+	static bool, string parseStrElement(String type, String ln)
+	{
+		string lnLower = ln.MakeLower();
+		type = type.MakeLower();
+		
+		int element_S = lnLower.IndexOf(type);
+		int element_E = lnLower.IndexOf(";", element_S);
+		if(element_S < 0 || element_E < 0) return false, "";
+		
+		string output = ln.Mid(element_S, element_E-element_S);
+		int strBegin = output.IndexOf("\"");
+		int strEnd = output.IndexOf("\"", strBegin+1);
+		
+		return true, output.Mid(strBegin+1, (strEnd-strBegin)-1);
+	}
+}

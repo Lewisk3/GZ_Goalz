@@ -1,0 +1,219 @@
+version "4.5"
+
+#include "GOALSTR"
+
+// Triggers goal when 1 monster has been killed.
+class GoalService_FirstBlood : Service
+{
+	override int GetInt(String req, String goalType, int curState, double curPerc, Object plrObj)
+	{
+		// Only process if neutral.
+		if(curState == 0) 
+		{
+			return level.killed_monsters > 0;
+		}
+		
+		return curState; // Neutral state
+	}
+}
+
+class GoalService_Fireblu : Service
+{
+	override int GetInt(String req, String goalType, int curState, double curPerc, Object plrObj)
+	{
+		// Only process if neutral.
+		if(curState != 0) return curState;
+		
+		let plr = PlayerPawn(plrObj);
+		
+		FLineTraceData lt;
+		plr.LineTrace(plr.angle, 256, plr.pitch, offsetz:(plr.player.viewz-plr.pos.z), offsetforward:plr.radius, data:lt);
+		if(lt.HitType == TRACE_HitWall && lt.HitLine)
+		{
+			let ln = lt.HitLine; 
+			Side sd = ln.sidedef[ln.front];
+			if(sd) 
+			{
+				let textop = TexMan.GetName(sd.GetTexture(sd.top));
+				let texmid = TexMan.GetName(sd.GetTexture(sd.mid));
+				let texbottom = TexMan.GetName(sd.GetTexture(sd.bottom));
+				string tex = String.Format("%s, %s, %s", textop, texmid, texbottom);
+				if(tex.IndexOf("FIREBLU") != -1)
+				{
+					// We've seen the fireblu!
+					return 1;
+				}
+			}
+		}
+		
+		return curState; // Neutral state
+	}
+}
+
+// Graphics and Visual rendering
+class UIGoalObject : Object
+{
+	PlayerPawn srcplr;
+	string icon, description, displayName;
+	int curState;
+	bool dead;
+	
+	double fade;
+	double hold;
+	
+	play static UIGoalObject Create(PlayerPawn source, String goalStr, int goalstate, class<UIGoalObject> type = "UIGoalObject")
+	{
+		let gobj = UIGoalObject(new(type));
+		if(gobj)
+		{
+			gobj.icon = ExampleAddon_GoalStr.getGoalElementStr(goalStr, "Icon");
+			gobj.description = ExampleAddon_GoalStr.getGoalElementStr(goalStr, "Description");
+			gobj.displayName = ExampleAddon_GoalStr.getGoalElementStr(goalStr, "Name");
+			gobj.curState = goalstate;
+			gobj.srcplr = source;
+			gobj.OnCreate(goalStr);
+		}
+		return gobj;
+	}
+	
+	play void OnCreate(string goalStr)
+	{
+		if(curState ==  1) srcplr.A_StartSound(ExampleAddon_GoalStr.getGoalElementStr(goalStr, "CompleteSound"), CHAN_AUTO, CHANF_LOCAL);
+		if(curState == -1) srcplr.A_StartSound(ExampleAddon_GoalStr.getGoalElementStr(goalStr, "FailSound"), CHAN_AUTO, CHANF_LOCAL);		
+	}
+	
+	static void DrawStr(String str, vector2 pos, double alpha = 1.0, uint fontColor = Font.CR_White, vector2 scale = (1.0,1.0))
+	{
+		Array<String> lines;
+		str.Split(lines, "\n");
+				
+		pos.x *= (1./scale.x*0.5);
+		pos.y *= (1./scale.y*0.5);
+		
+		for(int i = 0; i < lines.Size(); i++)
+		{
+			 float lineoffs = (20*i);
+			 Screen.DrawText("BigFont", fontColor, pos.x, pos.y+lineoffs, 
+				lines[i],
+				DTA_VirtualWidthF,  int(1920.*(1./scale.x*0.5)),
+				DTA_VirtualHeightF, int(1080.*(1./scale.y*0.5)),
+				DTA_KeepRatio, true,
+				DTA_Alpha, alpha
+			);
+		}	
+	}
+	
+	static double, double GetForcedScale(String img, double width, double height)
+	{
+		let texture = TexMan.CheckForTexture(img);
+		if(!texture) return 1.0,1.0;
+	
+		vector2 texsize;
+		[texsize.x, texsize.y] = TexMan.GetSize(texture);
+		
+		return width / texsize.x, height / texsize.y;
+	}
+	
+	static void DrawImg(String img, vector2 pos, double alpha = 1.0, Color tint = 0, vector2 scale = (1.0,1.0))
+	{
+		let texture = TexMan.CheckForTexture(img);
+		if(!texture) return;
+		
+		vector2 resolution = (Screen.GetWidth(), Screen.GetHeight());
+		vector2 scaleratio = (resolution.x/1920.0, resolution.y/1080.0);
+		vector2 nscale = (scale.x*scaleratio.x, scale.y*scaleratio.y);
+		
+		vector2 texsize;
+		[texsize.x, texsize.y] = TexMan.GetSize(texture);
+
+		Screen.DrawTexture(texture, false, pos.x, pos.y,
+			DTA_KeepRatio, true,
+			DTA_Alpha, alpha,
+			DTA_DestWidth, int(abs(texsize.x*scale.x*scaleratio.x)),
+			DTA_DestHeight, int(abs(texsize.y*scale.y*scaleratio.y)),
+			DTA_FlipX, !!(scale.x < 0),
+			DTA_FlipY, !!(scale.y < 0),
+			DTA_ColorOverlay, tint
+		);
+	}
+	
+	ui void Draw(double dT)
+	{
+		if(dead) return;
+		
+		double scale = 3.0;
+		vector2 goalPos = (100,100);
+		
+		DrawImg("Graphics/GoalBG.png", goalPos, alpha:fade, scale:(scale,scale));
+		
+		double xfit, yfit;
+		[xfit, yfit] = GetForcedScale(icon, 25*scale, 25*scale);
+		vector2 iconOffs = (18, 16) * scale;
+		DrawImg(icon, goalPos + iconOffs, alpha:fade, scale:(xfit,yfit));
+		
+		string fg = "GoalFG_Complete.png";
+		if(curState == -1) fg = "GoalFG_Fail.png";
+		DrawImg(String.Format("Graphics/%s", fg), goalPos, alpha:fade, scale:(scale,scale));
+		
+		
+		string desc = ExampleAddon_GoalStr.formatLnBreaks(description, 20);
+		DrawStr(displayName, goalPos + ((2,37) * scale), alpha:fade, Font.CR_GOLD, scale:(0.2*scale,0.2*scale));
+		DrawStr(desc, goalPos + ((37,3) * scale), alpha:fade, Font.CR_SAPPHIRE, scale:(0.15*scale,0.15*scale));
+		
+		hold += dT;
+		
+		if(hold > 60*3) 
+		{
+			fade -= 0.02*dT;
+			if(fade <= -0.5) dead = true;
+		}
+		else if(fade < 1.0)
+		{
+			fade += 0.05*dT;
+		}	
+	}
+}
+
+class ExampleAddon_GoalEvents : EventHandler
+{
+	Array<UIGoalObject> goalUpdates;
+
+	ui double deltatime, prevms;
+
+	override void RenderOverlay(RenderEvent e)
+	{
+		let goal = goalUpdates.Size() > 0 ? goalUpdates[0] : NULL;
+		if(goal) goal.Draw(deltatime);
+		
+		// Keep track of time, always.
+		if(!prevMS)
+		{
+			prevMS = MSTimeF();
+			return;
+		}
+		double ftime = MSTimeF()-prevMS;
+		prevMS = MSTimeF();
+		double dtime = 1000.0 / 60.;
+		deltatime = (ftime/dtime);
+	}
+
+	override void WorldTick()
+	{
+		for(int i = goalUpdates.Size()-1; i >= 0; i--)
+		{
+			if(goalUpdates[i].dead) 
+				goalUpdates.Delete(i);
+		}
+	}
+	override void NetworkProcess(ConsoleEvent e)
+	{
+		let plr = players[e.Player].mo;
+		if(!plr) return;
+	
+		if(ExampleAddon_GoalStr.checkGoalUpdate(e, "state"))
+		{
+			int curState = e.Args[0];
+			goalUpdates.Push(UIGoalObject.Create(plr, e.Name, curState));
+		}
+	}
+}
