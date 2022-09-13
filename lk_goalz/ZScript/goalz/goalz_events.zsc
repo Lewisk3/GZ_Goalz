@@ -11,13 +11,49 @@ class GoalzEvents : EventHandler
 		}
 	}
 	
-	/* 
-	// Example: How to handle goal updates.
 	override void NetworkProcess(ConsoleEvent e)
 	{
 		PlayerInfo plr = players[e.Player];
 		if(!plr) return;
 		
+		Array<String> strArgs;
+		string cmd = e.Name;
+		cmd.Split(strArgs, "::");
+		if(strArgs.Size() <= 0) return;
+		
+		if(strArgs[0] == "goalz" && strArgs.Size() >= 4)
+		{
+			let goalData = I_GoalzData(plr.mo.FindInventory("I_GoalzData"));
+			if(!goalData) return;
+		
+			if(strArgs[1] == "update")
+			{
+				string goalType = strArgs[2];
+				GoalInfo goal = goalData.findGoalByType(goalType);
+				if(!goal) return;
+				
+				if(strArgs[3] == "status")
+				{
+					int arg = e.Args[0];
+					goalData.SendGoalUpdate(goal, arg);
+				}
+				
+				if(strArgs[3] == "completion")
+				{
+					double arg = e.Args[0] / 100.;
+					goalData.SendGoalUpdate(goal, updatePercent:arg);
+				}
+				
+				if(strArgs[3] == "description" && strArgs.Size() >= 5)
+				{
+					string arg = strArgs[4];
+					goal.description = arg;
+				}
+			}
+		}
+		
+		/*
+		// Example: How to handle goal updates.
 		if(Goalz_StringHelper.checkGoalUpdate(e, "state"))
 		{
 			console.printf("Objective Completed: %s", Goalz_StringHelper.getGoalElementStr(e.Name, "Description"));
@@ -25,6 +61,7 @@ class GoalzEvents : EventHandler
 			
 			if(snd) plr.mo.A_StartSound(snd, CHAN_AUTO);
 		}
+		*/
 	}
-	*/
+	
 }

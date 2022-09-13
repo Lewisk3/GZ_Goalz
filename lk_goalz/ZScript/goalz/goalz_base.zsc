@@ -39,6 +39,56 @@ class I_GoalzData : Inventory
         +Inventory.PERSISTENTPOWER;
 	}
 	
+	enum GOALUPDATES
+	{
+		UPDATE_STATUS = 0,
+		UPDATE_COMPLETION = 1
+	}
+	
+	GoalInfo findGoalByType(Name type)
+	{
+		for(int i = 0; i < goals.Size(); i++)
+		{
+			let goal = goals[i];
+			if(goal.type == type) return goal;
+		}
+		
+		return NULL;
+	}
+	
+	static string GetGoalDataString(GoalInfo goal)
+	{
+		// A very specific token is used here so that Description strings do not conflict with data.
+		string goalData = "[Name:%s~$~Description:%s~$~Icon:%s~$~Status:%d~$~CompletionPercent:%d~$~CompleteSound:%s~$~FailSound:%s~$~PartialCompleteSound:%s]"; 
+		goalData = String.Format(
+			goalData, 
+			goal.displayName, goal.description, goal.icon, goal.goalState, int(goal.completionPercent*100.), 
+			goal.snd_complete, goal.snd_fail, goal.snd_partialcomplete
+		);
+		
+		return goalData;
+	}
+	
+	void SendGoalUpdate(GoalInfo goal, int updateStatus = int.max, double updatePercent = -1)
+	{
+		int oldState = goal.goalState;
+		double oldPerc = goal.completionPercent;
+		
+		if(updateStatus != int.max)
+			goal.goalState = updateStatus;
+		
+		if(updatePercent >= 0)
+			goal.completionPercent = updatePercent;
+		
+		string goalData = GetGoalDataString(goal);
+		
+		if(goal.goalState != oldState) 
+			EventHandler.SendNetworkEvent(String.Format("goal.state.updated.%s",goalData), goal.goalState, oldState);
+			
+		if(goal.completionPercent != oldPerc) 
+			EventHandler.SendNetworkEvent(String.Format("goal.percent.updated.%s",goalData), goal.completionPercent*100, oldPerc*100);
+	}
+	
 	void populateGoalz()
 	{
 		string defineKeyword = "goal";
@@ -83,6 +133,7 @@ class I_GoalzData : Inventory
 				// Field to read from.
 				string gTypeName = data.Mid(nameStart, nameLen); 
 				gTypeName.Replace(String.Format("%c", 13), "");
+				gTypeName.Replace(" ", "");
 				
 				// Field(s)
 				string gName;
@@ -137,29 +188,14 @@ class I_GoalzData : Inventory
 			let svi = ServiceIterator.Find(goal.goalServiceType);
 			Service serv;
 			while(serv = svi.Next())
-			{
-				int oldState = goal.goalState;
-				double oldPerc = goal.completionPercent;
-				
-				goal.completionPercent = serv.GetDouble("getGoalCompletion", goal.type, goal.goalState, goal.completionPercent, Owner);
-				goal.goalState = serv.GetInt("getGoalState", goal.type, goal.goalState, goal.completionPercent, Owner);
+			{				
+				double newPerc  = serv.GetDouble("getGoalCompletion", goal.type, goal.goalState, goal.completionPercent, Owner);
+				double newState = serv.GetInt("getGoalState", goal.type, goal.goalState, goal.completionPercent, Owner);
 				
 				string newDesc = serv.GetString(goal.description, goal.type, goal.goalState, goal.completionPercent, Owner);
 				if(newDesc != "") goal.description = newDesc;
 				
-				// A very specific token is used here so that Description strings do not conflict with data.
-				string goalData = "[Name:%s~$~Description:%s~$~Icon:%s~$~CompletionPercent:%d~$~CompleteSound:%s~$~FailSound:%s~$~PartialCompleteSound:%s]"; 
-				goalData = String.Format(
-					goalData, 
-					goal.displayName, goal.description, goal.icon, int(goal.completionPercent*100.), 
-					goal.snd_complete, goal.snd_fail, goal.snd_partialcomplete
-				);
-				
-				if(goal.goalState != oldState) 
-					EventHandler.SendNetworkEvent(String.Format("goal.state.updated.%s",goalData), goal.goalState, oldState);
-					
-				if(goal.completionPercent != oldPerc) 
-					EventHandler.SendNetworkEvent(String.Format("goal.percent.updated.%s",goalData), goal.completionPercent*100, oldPerc*100);
+				SendGoalUpdate(goal, newState, newPerc);
 			}
 		}
 	}

@@ -43,6 +43,16 @@ class ExampleAddon_GoalStr abstract
 		return false;
 	}
 	
+	play static void getAllGoalsData(PlayerPawn src, out Array<String> allGoalsData)
+	{
+		let si = ServiceIterator.Find("GoalInfoGetter");
+		Service serv = si.Next();
+		if(!serv) return;
+		
+		string allgoalstr = serv.GetString("*", objectArg:src);
+		allgoalstr.Split(allGoalsData, "~:~");
+	}
+	
 	static string getGoalElementStr(string goalStr, string element)
 	{
 		string elementStr = goalStr.Mid(goalStr.IndexOf("[")+1, goalStr.IndexOf("]")-1);

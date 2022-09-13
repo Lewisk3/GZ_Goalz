@@ -204,6 +204,20 @@ class ExampleAddon_GoalEvents : EventHandler
 			if(goalUpdates[i].dead) 
 				goalUpdates.Delete(i);
 		}
+		
+		Array<String> allGoals;
+		ExampleAddon_GoalStr.getAllGoalsData(players[consoleplayer].mo, allGoals);
+		
+		for(int i = 0; i < allGoals.Size(); i++)
+		{
+			string goalStr = allGoals[i];
+			console.printf(
+				"Name: %s \nDesc: %s \nStatus: %s\n\n",  
+				ExampleAddon_GoalStr.getGoalElementStr(goalStr, "name"),
+				ExampleAddon_GoalStr.getGoalElementStr(goalStr, "description"),
+				ExampleAddon_GoalStr.getGoalElementStr(goalStr, "status")
+			);
+		}
 	}
 	override void NetworkProcess(ConsoleEvent e)
 	{
@@ -213,7 +227,7 @@ class ExampleAddon_GoalEvents : EventHandler
 		if(ExampleAddon_GoalStr.checkGoalUpdate(e, "state"))
 		{
 			int curState = e.Args[0];
-			goalUpdates.Push(UIGoalObject.Create(plr, e.Name, curState));
+			if(curState != 0) goalUpdates.Push(UIGoalObject.Create(plr, e.Name, curState));
 		}
 	}
 }
